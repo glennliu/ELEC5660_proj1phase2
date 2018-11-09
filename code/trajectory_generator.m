@@ -9,12 +9,13 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     frame = 100;    % number of frames
     
     % vias constrain
-    st_1 = [-1;0;0;0];   % [x0 xt vx0 vxt ax0 axt]
-    st_2 = [0;1;0;0];   % [y0 yt vy0 vyt ay0 ayt]
-    st_3 = [0;0;0;0];   % []
+    st_1 = [-1;0;0;1];   % [x0 xt vx0 vxt ax0 axt]
+    st_2 = [0;1;1;0];   % [y0 yt vy0 vyt ay0 ayt]
+    st_3 = [1;0;0;2];   % [z0 zt vz0 vzt az0 azt]
+    dim = 3;
 
     % induced params
-    dim = size(st_1,1)/2; % dimensions of path
+%     dim = size(st_1,1)/2; % dimensions of path
     num_st = size(st_1,1);  %number of constraint
     N = 2*kr -1;
 
@@ -67,18 +68,18 @@ if nargin > 1 % pre-process can be done here (given waypoints)
             s_des(1,:) = [st_1(1,1),st_2(1,1),st_3(1,1)];
     end
     
-    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Atotal,[st_1;st_2]);
+    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Atotal,[st_1;st_2;st_3]);
     
     % create output path
     disp('debug');
     
     for index=2:frame+1
         t = t0 +(index-1)*T/frame;
-        s_des(index,1) = 0;
-        s_des(index,2) = 0;
         for i=0:N   % x path
             s_des(index,1) = x(i+1)*t^(i) + s_des(index,1);
             s_des(index,2) = x(i+N+2)*t^(i) + s_des(index,2);
+            s_des(index,3) = x(i+2*N+3)*t^(i) + s_des(index,3);
+
         end
     end
         
