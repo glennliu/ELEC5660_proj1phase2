@@ -1,13 +1,13 @@
-function s_des = trajectory_generator(ti, path)
+function s_des = trajectory_generator(t, path)
 
 
 if nargin > 1 % pre-process can be done here (given waypoints)
     % set parameters
     t0 = 0;
-    T = 2;   %keyframe duration
+    T = 1;   %keyframe duration
     kr = 4; %derivative order
-    st_1 = [-1;2];   %[p0 pt]
-    st_2 = [2;0];   %[v0 vt]
+    st_1 = [0;2];   %[p0 pt]
+    st_2 = [0;0];   %[v0 vt]
     st_3 = [0;0];   %[a0 at]
 
     % induced params
@@ -25,20 +25,26 @@ if nargin > 1 % pre-process can be done here (given waypoints)
         end
     end
     
-%     k1 = 0; % 1st derivation
-    for k=0:1
-        for i=0:N
-            if i-k <0
-            A(k*2+1,i+1) = 0;
-            A(k*2+2,i+1) = 0;
-            else
-            A(k*2+1,i+1) = (factorial(i)/factorial(i-k))*t0^(i-k);
-            A(k*2+2,i+1) = (factorial(i)/factorial(i-k))*T^(i-k);
-            end
-        end
-    end
     
-    [x,fval,exitflag,output,lamda] = quadprog(Q,f,[],[],A,[st_1;st_2]);
+%     for i=kr+1:N+1
+%         if t0 ==0
+%             A(1,i) = 0;
+%         else
+%             A(1,i) = (factorial(i)/factorial(i-kr))*t0^(i-kr);
+%         end
+%         A(2,i) = 1;
+% %         A(2,i) = (factorial(i-1)/factorial(i-kr-1))*T^(i-kr-1);
+%     end
+    
+    
+    k1 = 0; % 1st derivation
+    for i=0:N
+        A(1,i+1) = (factorial(i)/factorial(i-k1))*t0^(i-k1);
+        A(2,i+1) = (factorial(i)/factorial(i-k1))*T^(i-k1);
+    end;
+    
+    
+    [x,fval,exitflag,output,lamda] = quadprog(Q,f,[],[],A,st_1);
     
     % create output path
     frame = 100;
@@ -52,10 +58,14 @@ if nargin > 1 % pre-process can be done here (given waypoints)
         end
     end
         
+        
     disp('break');
+   
+    
     
 else % output desired trajectory here (given time)
     warning('input errors for trajectory generator!')
+    
     
 end
 
