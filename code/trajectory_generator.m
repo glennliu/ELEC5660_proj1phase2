@@ -2,28 +2,27 @@ function s_des = trajectory_generator(ti, path)
 
 
 if nargin > 1 % pre-process can be done here (given waypoints)
-    % set parameters
+    %% set parameters here
     t0 = 0;
     T = 2;   % segment duration
     kr = 4; % derivative order
     frame = 100;    % number of frames
     
     % derivative constraint
-    st_x = [-1;0;0;1];   % [x0 xt vx0 vxt ax0 axt]
-    st_y = [0;1;0;0];   % [y0 yt vy0 vyt ay0 ayt]
-    st_z = [1;0;0;0];   % [z0 zt vz0 vzt az0 azt]
+    % Notice: set acce st without vel st doesn't perform well
+    st_x = [-1;0;0;0;0;0];   % [x0 xt vx0 vxt ax0 axt]
+    st_y = [0;1;0;0;0;0];   % [y0 yt vy0 vyt ay0 ayt]
+    st_z = [1;0;0;0;0;0];   % [z0 zt vz0 vzt az0 azt]
     
-    % c_select = [x0 xt vx0 vxt ax0 axt
-    %             y0 yt vy0 vyt ay0 ayt
-    %             z0 zt vz0 vzt az0 azt]
+    % c_select = [p0 pt v0 vt a0 at]
     % 1 for choose, 0 for none
-    c_select = [1 1 0 0 0 0
-                1 1 0 0 0 0
-                1 1 0 0 0 0]
+    % the same selection matrix for x,y,z dim
+    c_select = [1 1 1 1 1 1]
     
     dim = 3;
-    st_order = size(st_x,1)/2;   % 2nd derivative st
+%     st_order = size(st_x,1)/2;   % 2nd derivative st
 
+    %% calculation
     % induced params
     num_st = size(st_x,1);  %number of constraint
     N = 2*kr -1;
@@ -47,19 +46,20 @@ if nargin > 1 % pre-process can be done here (given waypoints)
             if i-k <0
             Ad(k*2+1,i+1) = 0;
             Ad(k*2+2,i+1) = 0;
-            elseif c_select(1,k*2+1) == 1
-                Ad(k*2+1,i+1) = (factorial(i)/factorial(i-k))*t0^(i-k);
-            elseif c_select(1,k*2+2) == 1
-                Ad(k*2+2,i+1) = (factorial(i)/factorial(i-k))*T^(i-k);
             else
-                Ad(k*2+1,i+1) = 0;
-                Ad(k*2+2,i+1) = 0;
+            Ad(k*2+1,i+1) = (factorial(i)/factorial(i-k))*t0^(i-k);
+            Ad(k*2+2,i+1) = (factorial(i)/factorial(i-k))*T^(i-k);
             end
         end
         
+        if c_select(1,k*2+1) == 0
+            Ad(k*2+1,:) = zeros(1,N+1);
+        end
         
-
-        
+        if c_select(1,k*2+2) == 0
+            Ad(k*2+2,:) = zeros(1,N+1);
+        end
+       
     end
     
 %   continuity constraint
