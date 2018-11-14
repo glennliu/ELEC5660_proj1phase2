@@ -23,7 +23,6 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     % the same selection matrix for x,y,z dim
     c_select = [1 1 1 1 1 1]
     
-%     st_order = size(st_x,1)/2;   % 2nd derivative st
 
     %% calculation
     % induced params
@@ -34,8 +33,8 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     % build matrix
     Q0 = zeros(N+1,N+1);
     Q1 = zeros(N+1,N+1);
-    Ad = zeros(num_st,N+1);
-    Ac = zeros((N+1)*num_st,1);
+    Ad = zeros(num_st*num_seg,(N+1)*num_seg);
+    Ac = zeros(num_st,(N+1)*num_seg);
     f = zeros((N+1)*dim*num_seg,1);
     s_des = zeros(frame*num_seg+1,dim+1);
 
@@ -47,18 +46,15 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     
     Q2 = kron(eye(num_seg),Q1);
 
-%   derivative constraint matrix
-    Ad = zeros(6*num_seg,(N+1)*num_seg);
+%   derivative constraint and continuity constraint
     for is = 1:num_seg
         for k=0:2
-            for i=0:N
-                if i-k <0
-                    Ad(k*2+1,i+1) = 0;
-                    Ad(k*2+2,i+1) = 0;
-                else
-                    Ad(k*2+1+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is)^(i-k);
-                    Ad(k*2+2+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is+1)^(i-k);
-                end
+            for i=k:N
+                Ad(k*2+1+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is)^(i-k);
+                Ad(k*2+2+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is+1)^(i-k);
+                
+                Ac(k*2+1,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is)^(i-k);
+                Ac(k*2+2,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is+1)^(i-k);                
             end
             
             if c_select(1,k*2+1) == 0
@@ -76,17 +72,15 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     
     end
     
-
     
-%   continuity constraint
-   
     
 %   duplicate in dimension            
     A0 = zeros(num_st,N+1);
     Qtotal = kron(eye(dim),Q2);
-    Atotal = kron(eye(dim),Ad);
+    Ad_total = kron(eye(dim),Ad);
+    Ac_total = [Ac Ac Ac];
     
-    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Atotal,segments_');
+    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Ad_total,segments_');
     
     % create output path
     disp('debug');
