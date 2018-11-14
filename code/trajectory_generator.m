@@ -12,7 +12,8 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     % Notice: set acce st without vel st doesn't perform well
     % [[x0;xt;vx0;vxt;ax0;axt];[y0;yt;vy0;vyt;ay0;ayt];[z0;zt;vz0;vzt;az0;azt]]
     segments = [-1 0 0 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0
-                0 2 0 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 0];
+                0 2 0 0 0 0 1 0 0 0 0 0 0 -1 0 0 0 0
+                2 3 0 0 0 0 0 -2 0 0 0 0 -1 2 0 0 0 0];
     num_seg = size(segments,1);
     dim = size(segments,2)/6;
     ts = t0:T:T*num_seg;
@@ -36,7 +37,7 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     Ad = zeros(num_st,N+1);
     Ac = zeros((N+1)*num_st,1);
     f = zeros((N+1)*dim*num_seg,1);
-    s_des = zeros(frame+1,dim);
+    s_des = zeros(frame*num_seg+1,dim+1);
 
     for i=kr+1:N+1
         for j = kr+1:N+1
@@ -47,61 +48,61 @@ if nargin > 1 % pre-process can be done here (given waypoints)
     Q2 = kron(eye(num_seg),Q1);
 
 %   derivative constraint matrix
-Ad = zeros(6*num_seg,(N+1)*num_seg);
-for is =1:num_seg
-    for k=0:2
-        for i=0:N
-            if i-k <0
-            Ad(k*2+1,i+1) = 0;
-            Ad(k*2+2,i+1) = 0;
-            else
-            Ad(k*2+1+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is)^(i-k);
-            Ad(k*2+2+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is+1)^(i-k);
+    Ad = zeros(6*num_seg,(N+1)*num_seg);
+    for is = 1:num_seg
+        for k=0:2
+            for i=0:N
+                if i-k <0
+                    Ad(k*2+1,i+1) = 0;
+                    Ad(k*2+2,i+1) = 0;
+                else
+                    Ad(k*2+1+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is)^(i-k);
+                    Ad(k*2+2+(is-1)*6,i+1+(is-1)*(N+1)) = (factorial(i)/factorial(i-k))*ts(is+1)^(i-k);
+                end
+            end
+            
+            if c_select(1,k*2+1) == 0
+                Ad(k*2+1,:) = zeros(1,N+1);
+            end
+            
+            if c_select(1,k*2+2) == 0
+                Ad(k*2+2,:) = zeros(1,N+1);
             end
         end
-        
-        if c_select(1,k*2+1) == 0
-            Ad(k*2+1,:) = zeros(1,N+1);
-        end
-        
-        if c_select(1,k*2+2) == 0
-            Ad(k*2+2,:) = zeros(1,N+1);
-        end
-    end
-%     segment_(1,1+(num_seg-1)*num_st:num_seg*num_st) = segments(num_seg,:); 
     
-end
+        for i_dim = 1:dim
+            segments_(1,1+((is-1)+(i_dim-1)*num_seg)*num_st:(is+num_seg*(i_dim-1))*num_st) = segments(is,1+(i_dim-1)*num_st:i_dim*num_st); %x
+        end
+    
+    end
+    
+
     
 %   continuity constraint
-    
+   
     
 %   duplicate in dimension            
     A0 = zeros(num_st,N+1);
     Qtotal = kron(eye(dim),Q2);
     Atotal = kron(eye(dim),Ad);
-    n_dim = 1;
-    while n_dim<=dim
-       s_des(1,n_dim) = segments(1,n_dim*6-5);
-       n_dim =n_dim+1;
-    end
     
-    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Atotal,segment_');
+    [x,fval,exitflag,output,lamda] = quadprog(Qtotal,f,[],[],Atotal,segments_');
     
     % create output path
     disp('debug');
     
     for is = 1:num_seg
-    for index=2+(is-1)*frame:frame+1+(is-1)*frame
-        t = ts(is) +(index-1)*T/frame;
-        for i=0:N   % x path
-            s_des(index,1) = x(i+1+(num_seg-1+is-1)*(N+1))*t^(i) + s_des(index,1);
-            s_des(index,2) = x(i+1+(num_seg+is-1)*(N+1))*t^(i) + s_des(index,2);
-            s_des(index,3) = x(i+1+(num_seg*2+is-1)*(N+1))*t^(i) + s_des(index,3);
-
+        for index=1+(is-1)*frame:frame+(is-1)*frame
+            t = ts(is) +(index-1-(is-1)*frame)*T/frame;
+            for i=0:N   % x path
+                s_des(index,1) = t;
+                s_des(index,2) = x(i+1+(is-1)* (N+1))*t^(i) + s_des(index,2);  %x
+                s_des(index,3) = x(i+1+(is-1 + num_seg)* (N+1))*t^(i) + s_des(index,3);    %y
+                s_des(index,4) = x(i+1+(is-1 + num_seg*2)* (N+1))*t^(i) + s_des(index,4);  %z
+            end
         end
     end
-    end
-    
+    s_des(frame*num_seg+1,:) = [t+T/frame segments(end,2) segments(end,8) segments(end,14)];
         
     disp('break');
     
